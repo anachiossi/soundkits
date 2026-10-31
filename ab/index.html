@@ -1,0 +1,139 @@
+<!doctype html>
+<!-- index.html — the door of a sound kit page: asks for the password, opens the locked kit (kit.bin, next to this
+     page) and shows it. Read only: nothing can be changed from here.
+     Lock: AES-256-GCM, key = PBKDF2-SHA256 of the password, 600 000 rounds. kit.bin = salt (16 bytes) · iv (12) · page.
+     "Remember on this phone" keeps the key on the phone (never the password). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-title" content="Sound kit">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Sound kit</title>
+<style>
+  /* big and plain: easy to read for everyone (Ana, 27 Oct) */
+  :root { --ink: #0f172a; --soft: #475569; --line: #94a3b8; --paper: #fff; --go: #0f172a; --bad: #b91c1c; --step: #e2e8f0;
+          --text: 21px; --big: 24px; --title: 38px; --gap: 16px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; justify-content: center; padding: 28px 16px 40px;
+         font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: var(--text); line-height: 1.4;
+         color: var(--ink); background: var(--paper); }
+  form { width: 100%; max-width: 440px; display: grid; gap: var(--gap); align-content: start; }
+  h1 { margin: 0 0 4px; font-size: var(--title); line-height: 1.1; }
+  h2 { margin: 18px 0 0; font-size: var(--big); }
+  p { margin: 0; }
+  input[type=password] { font: inherit; font-size: var(--big); padding: 16px; border: 2px solid var(--line); border-radius: 12px; }
+  label { display: flex; gap: 12px; align-items: center; }
+  label input { width: 26px; height: 26px; }
+  button { font: inherit; font-size: var(--big); font-weight: 800; padding: 18px; border: 0; border-radius: 12px;
+           background: var(--go); color: var(--paper); }
+  .bad { color: var(--bad); font-weight: 700; }
+  ol { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 14px; }
+  ol li { counter-increment: step; display: flex; gap: 12px; align-items: flex-start; }
+  ol li::before { content: counter(step); flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--step);
+                  font-weight: 800; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+<form id="door">
+  <h1>Sound kit</h1>
+  <input type="password" id="password" autocomplete="current-password" placeholder="Password" required>
+  <label><input type="checkbox" id="remember" checked> Remember on this phone</label>
+  <button id="open">Open</button>
+  <p id="message" aria-live="polite"></p>
+
+  <h2>iPhone, iPad or Mac — Safari</h2>
+  <ol>
+    <li><span>Open this link in <b>Safari</b>.</span></li>
+    <li><span>Type the password. Tap <b>Open</b>.</span></li>
+    <li><span>iPhone / iPad: tap <b>Share</b> (the square with the arrow ↑) → <b>Add to Home Screen</b> → <b>Add</b>.<br>
+      Mac: <b>File</b> → <b>Add to Dock</b>.</span></li>
+    <li><span>Open it from the new icon. Type the password once more.</span></li>
+  </ol>
+
+  <h2>Android or PC — Chrome</h2>
+  <ol>
+    <li><span>Open this link in <b>Chrome</b>.</span></li>
+    <li><span>Type the password. Tap <b>Open</b>.</span></li>
+    <li><span>Tap <b>⋮</b> (top right).<br>
+      Android: <b>Add to Home screen</b> → <b>Add</b>.<br>
+      PC: <b>Cast, save and share</b> → <b>Install page as app</b>.</span></li>
+    <li><span>Open it from the new icon. Type the password once more.</span></li>
+  </ol>
+</form>
+<script>
+// sw.js keeps a copy of the kit on the phone, so it opens with no signal (Ana, 27 Oct)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => null);
+
+const ROUNDS = 600000;
+const KEPT = 'kit-key';
+const message = document.getElementById('message');
+const say = (text, bad) => { message.textContent = text; message.className = bad ? 'bad' : ''; };
+
+async function lockedKit() {
+  const answer = await fetch('kit.bin', { cache: 'no-cache' });
+  if (!answer.ok) throw new Error('missing');
+  return new Uint8Array(await answer.arrayBuffer());
+}
+
+async function keyFrom(password, salt) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: ROUNDS }, base,
+    { name: 'AES-GCM', length: 256 }, true, ['decrypt']);
+}
+
+// the page inside the locked kit, or null when the key doesn't open it
+async function unlock(bytes, key) {
+  try {
+    const page = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(16, 28) }, key, bytes.slice(28));
+    return new TextDecoder().decode(page);
+  } catch { return null; }
+}
+
+function show(page, key) {
+  window.kitKey = key;    // the kit page uses it to unlock the PDF download (kit-pdf.bin)
+  document.open();
+  document.write(page);   // the kit page and its little script (search, ticks, big photos)
+  document.close();
+}
+
+async function keptKey() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(KEPT) || 'null');
+    return kept && crypto.subtle.importKey('jwk', kept, 'AES-GCM', true, ['decrypt']);
+  } catch { return null; }
+}
+
+// a phone that was told to remember opens straight away
+(async () => {
+  const key = await keptKey();
+  if (!key) return;
+  say('Opening…');
+  try {
+    const page = await unlock(await lockedKit(), key);
+    if (page) return show(page, key);
+  } catch { /* no signal: the form stays */ }
+  say('');
+})();
+
+document.getElementById('door').addEventListener('submit', async event => {
+  event.preventDefault();
+  say('Opening…');
+  try {
+    const bytes = await lockedKit();
+    const key = await keyFrom(document.getElementById('password').value, bytes.slice(0, 16));
+    const page = await unlock(bytes, key);
+    if (!page) return say('Wrong password.', true);
+    try {
+      if (document.getElementById('remember').checked) localStorage.setItem(KEPT, JSON.stringify(await crypto.subtle.exportKey('jwk', key)));
+      else localStorage.removeItem(KEPT);
+    } catch { /* private window: not remembered */ }
+    show(page, key);
+  } catch {
+    say('No signal, or the kit is not published yet. Try again in a moment.', true);
+  }
+});
+</script>
+</body>
+</html>
