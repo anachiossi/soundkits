@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- index.html — the kit admin page (soundkits/admin, Ana 1 Nov): the requests from every kit website in one list,
+     approved or declined here (admin.js, approve.js). Not linked from the kit websites. Nothing secret in this file:
+     the admin's GitHub key is typed once on each device and kept there. tools/kit_site.py's robot copies this folder. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Kit inbox</title>
+<style>
+  :root { --ink: #0f172a; --soft: #64748b; --line: #e2e8f0; --paper: #fff; --back: #f8fafc; --go: #0f172a; --bad: #b91c1c; --ok: #166534; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 16px; line-height: 1.45; color: var(--ink); background: var(--back); }
+  header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--go); color: var(--paper); }
+  header h1 { margin: 0; font-size: 20px; flex: 1; }
+  header button { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid #475569; background: transparent; color: var(--paper); }
+  main { max-width: 680px; margin: 0 auto; padding: 12px 16px 48px; }
+  h2.kit { margin: 24px 0 4px; font-size: 22px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; }
+  h3.who { margin: 14px 0 6px; font-size: 15px; color: var(--soft); text-transform: uppercase; letter-spacing: 0.04em; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 10px 0; display: grid; gap: 10px; }
+  .card.done { opacity: 0.55; }
+  .card label { display: grid; gap: 4px; font-size: 13px; color: var(--soft); font-weight: 600; }
+  .card input, .card select { font: inherit; font-size: 16px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: var(--paper); color: var(--ink); width: 100%; }
+  .card form { display: grid; gap: 8px; }
+  .what { margin: 0; font-weight: 600; }
+  .photos { display: flex; gap: 6px; flex-wrap: wrap; }
+  .photos:empty { display: none; }
+  .photos img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; }
+  .buttons { display: flex; gap: 8px; }
+  .buttons button, .setup .go { flex: 1; font: inherit; font-weight: 700; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: var(--paper); color: var(--ink); }
+  .buttons .go, .setup .go { background: var(--go); color: var(--paper); border-color: var(--go); }
+  button:disabled { opacity: 0.5; }
+  .small { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: var(--paper); }
+  .summary { display: flex; align-items: center; justify-content: space-between; margin: 4px 0; }
+  .result { margin: 0; color: var(--ok); font-weight: 600; }
+  .result:empty { display: none; }
+  .bad, .result.bad { color: var(--bad); font-weight: 600; }
+  .muted, .empty { color: var(--soft); }
+</style>
+</head>
+<body>
+<header><h1>Kit inbox</h1><button type="button" data-do="settings">Settings</button></header>
+<main></main>
+<script type="module" src="admin.js"></script>
+</body>
+</html>
